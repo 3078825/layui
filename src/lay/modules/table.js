@@ -76,6 +76,8 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
           }()
           ,'{{# if(item2.checkbox){ }}'
             ,'<th data-field="{{ item2.field||i2 }}" data-type="checkbox" unresize="true"><div class="layui-table-cell laytable-cell-checkbox"><input type="checkbox" name="layTableCheckbox" lay-skin="primary" lay-filter="layTableAllChoose" {{# if(item2[d.data.checkName]){ }}checked{{# }; }}></div></th>'
+          ,'{{# } else if(item2.space){ }}'
+            ,'<th data-field="{{ item2.field||i2 }}" unresize="true"><div class="layui-table-cell laytable-cell-space"></div></th>'
           ,'{{# } else { }}'
             ,'<th data-field="{{ item2.field||i2 }}" {{#if(item2.colspan){}} colspan="{{item2.colspan}}"{{#} if(item2.rowspan){}} rowspan="{{item2.rowspan}}"{{#}}} {{# if(item2.unresize){ }}unresize="true"{{# } }}>'
               ,'{{# if(item2.colspan > 1){ }}'
@@ -171,18 +173,36 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
     ,loading: true //请求数据时，是否显示loading
   };
 
+  //patch start by vampire
+  Class.prototype.resize = function(){
+      var that = this, options = that.config;
+      //设置body区域高度
+      if(options.height){
+          var bodyHeight = parseFloat(options.height) - parseFloat(that.layHeader.height()) - 1;
+          if(options.page){
+              bodyHeight = bodyHeight - parseFloat(that.layTool.outerHeight() + 1);
+          }
+          that.layBody.css('height', bodyHeight);
+      }
+  };
+  //patch end by vampire
+
   //表格渲染
   Class.prototype.render = function(){
     var that = this, options = that.config;
-
+    //patch start by vampire
+    var tpl_conf = laytpl.getConfig();
+    if(tpl_conf.open !== '{{' || tpl_conf.close !== '}}'){
+        TPL_MAIN = TPL_MAIN.replace(/{{/g,tpl_conf.open);
+        TPL_MAIN = TPL_MAIN.replace(/}}/g,tpl_conf.close);
+    }
+    //patch end by vampire
     options.elem = $(options.elem);
     options.where = options.where || {};
     
     if(!options.elem[0]) return that;
-
     var othis = options.elem
     ,hasRender = othis.next('.' + ELEM_VIEW)
-
     //替代元素
     ,reElem = that.elem = $(laytpl(TPL_MAIN).render({
       VIEW_CLASS: ELEM_VIEW
@@ -204,7 +224,6 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
     that.layFixLeft = reElem.find(ELEM_FIXL);
     that.layFixRight = reElem.find(ELEM_FIXR);
     that.layTool = reElem.find(ELEM_TOOL);
-    
     that.pullData(1);
     that.events();
   };
@@ -285,25 +304,23 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
         var tds = [], tds_fixed = [], tds_fixed_r = [];
         that.eachCols(function(i3, item3){
           var content = item1[item3.field||i3];
-          if(content === undefined || content === null){
-            content = (i3 === 0 ? i1+1 : '');
-          }
+          if(content === undefined || content === null) content = '';
           
           if(item3.colspan > 1) return;
           
           var td = ['<td data-field="'+ (item3.field||i3) +'"'+ function(){
             var attr = [];
             if(item3.edit) attr.push(' data-edit="true"'); //是否允许单元格编辑
-            if(item3.align) attr.push(' data-off="click" align="'+ item3.align +'"'); //对齐方式
+            if(item3.align) attr.push(' align="'+ item3.align +'"'); //对齐方式
             if(item3.templet) attr.push(' data-content="'+ content +'"'); //自定义模板
+            if(item3.toolbar) attr.push(' data-off="true"'); //自定义模板
             if(item3.event) attr.push(' lay-event="'+ item3.event +'"'); //自定义事件
             if(item3.style) attr.push(' style="'+ item3.style +'"'); //自定义样式
             return attr.join('');
           }() +'>'
             ,'<div class="layui-table-cell laytable-cell-'+ function(){
-              if(item3.checkbox){
-                return 'checkbox';
-              }
+              if(item3.checkbox) return 'checkbox';
+              if(item3.space) return 'space'; //间距
               return options.index + '-' + (item3.field||i3);
             }() +'">' + function(){
               if(item3.checkbox){
@@ -316,8 +333,8 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
                   return item1[checkName] ? 'checked' : '';                   
                 }() +'>';
               }
-              if(item3.fixed === 'right' && item3.toolbar){
-                return $(item3.toolbar).html();
+              if(item3.toolbar){
+                return laytpl($(item3.toolbar).html()||'').render(item1);
               }
               return item3.templet ? laytpl($(item3.templet).html() || String(content)).render(item1) : content;
             }()
@@ -355,15 +372,6 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
       that.cacheData = data;
     }
     
-    //设置body区域高度
-    if(options.height){
-      var bodyHeight = parseFloat(options.height) - parseFloat(that.layHeader.height()) - 1;
-      if(options.page){
-        bodyHeight = bodyHeight - parseFloat(that.layTool.outerHeight() + 2);
-      }
-      that.layBody.css('height', bodyHeight);
-    }
-    
     if(data.length === 0){
       return that.layMain.html('<div class="layui-none">无数据</div>');
     }
@@ -394,6 +402,9 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
       });
       that.layTool.find('.layui-table-count span').html(count)
     }
+    //patch start by vampire
+    that.resize();
+    //patch end by vampire
   };
   
   //数据排序
@@ -555,7 +566,7 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
     ,th = that.layHeader.find('th')
     ,resizing
     ,ELEM_CELL = '.layui-table-cell'
-    ,filter = config.id || config.elem.attr('lay-filter');
+    ,filter = config.elem.attr('lay-filter');
 
     //拖拽调整宽度    
     th.on('mousemove', function(e){

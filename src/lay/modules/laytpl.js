@@ -11,8 +11,8 @@ layui.define(function(exports){
   "use strict";
 
   var config = {
-    open: '{{',
-    close: '}}'
+    open: '<%',
+    close: '%>'
   };
 
   var tool = {
@@ -103,6 +103,12 @@ layui.define(function(exports){
       config[i] = options[i];
     }
   };
+
+  //patch start by vampire
+  laytpl.getConfig = function(){
+    return config;
+  };
+  //patch end by vampire
 
   laytpl.v = '1.2.0';
   
