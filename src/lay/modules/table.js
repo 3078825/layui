@@ -173,18 +173,36 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
     ,loading: true //请求数据时，是否显示loading
   };
 
+  //patch start by vampire
+  Class.prototype.resize = function(){
+      var that = this, options = that.config;
+      //设置body区域高度
+      if(options.height){
+          var bodyHeight = parseFloat(options.height) - parseFloat(that.layHeader.height()) - 1;
+          if(options.page){
+              bodyHeight = bodyHeight - parseFloat(that.layTool.outerHeight() + 1);
+          }
+          that.layBody.css('height', bodyHeight);
+      }
+  };
+  //patch end by vampire
+
   //表格渲染
   Class.prototype.render = function(){
     var that = this, options = that.config;
-
+    //patch start by vampire
+    var tpl_conf = laytpl.getConfig();
+    if(tpl_conf.open !== '{{' || tpl_conf.close !== '}}'){
+        TPL_MAIN = TPL_MAIN.replace(/{{/g,tpl_conf.open);
+        TPL_MAIN = TPL_MAIN.replace(/}}/g,tpl_conf.close);
+    }
+    //patch end by vampire
     options.elem = $(options.elem);
     options.where = options.where || {};
     
     if(!options.elem[0]) return that;
-
     var othis = options.elem
     ,hasRender = othis.next('.' + ELEM_VIEW)
-
     //替代元素
     ,reElem = that.elem = $(laytpl(TPL_MAIN).render({
       VIEW_CLASS: ELEM_VIEW
@@ -206,16 +224,6 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
     that.layFixLeft = reElem.find(ELEM_FIXL);
     that.layFixRight = reElem.find(ELEM_FIXR);
     that.layTool = reElem.find(ELEM_TOOL);
-    
-    //设置body区域高度
-    if(options.height){
-      var bodyHeight = parseFloat(options.height) - parseFloat(that.layHeader.height()) - 1;
-      if(options.page){
-        bodyHeight = bodyHeight - parseFloat(that.layTool.outerHeight() + 1);
-      }
-      that.layBody.css('height', bodyHeight);
-    }
-    
     that.pullData(1);
     that.events();
   };
@@ -394,6 +402,9 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
       });
       that.layTool.find('.layui-table-count span').html(count)
     }
+    //patch start by vampire
+    that.resize();
+    //patch end by vampire
   };
   
   //数据排序
